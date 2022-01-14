@@ -7,17 +7,18 @@ from telebot.types import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
 
 
 # Telegram Bot
-API_KEY = "5011942238:AAHj-8qXwf7Aw1C0cWEkJ2qqgsjls7iuRAU"
+API_KEY = "" #Telegram API key
 
 bot = telebot.TeleBot(API_KEY) 
 
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://admin:root12345@grouptogetherbot.cy4w4hr2xk8p.us-east-1.rds.amazonaws.com:3306/grouptogetherdb'
+app.config['SQLALCHEMY_DATABASE_URI'] = '' #token
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 299}
 
 db = SQLAlchemy(app)
+
 class Users(db.Model):
     __tablename__ = 'users'
 
@@ -131,17 +132,23 @@ def start(message):
     Command that welcomes the user and configures the initial setup
     """
     chat_id = message.chat.id
-    id_exist = idExists(chat_id)
-    if not id_exist:
-        bot.send_message(chat_id,"Welcome to GroupTogether, I can help make your project group searching life a breeze.")
-        msg = bot.send_message(chat_id,"It looks like it is your first time using me. Please enter your name in the next chat bubble. This name will be saved and used to identify yourself to others.")
-        bot.register_next_step_handler(msg,register)
-        return
-    bot.send_sticker(
-        chat_id=chat_id, 
-        data='CAACAgUAAxkBAAEDoRJh1y0KgigTU87x7QYrbKJNbfDavQACawMAAlobywF60Koi6G4EECME'
-    )
+    try:
+        id_exist = idExists(chat_id)
+        if not id_exist:
+            bot.send_message(chat_id,"Welcome to GroupTogether, I can help make your project group searching life a breeze.")
+            msg = bot.send_message(chat_id,"It looks like it is your first time using me. Please enter your name in the next chat bubble. This name will be saved and used to identify yourself to others.")
+            bot.register_next_step_handler(msg,register)
+            return
+    except:
+        print('error went in')
+        db.session.rollback()
 
+    '''
+    bot.send_sticker(
+        chat_id,'CAACAgUAAxkBAAEDoRJh1y0KgigTU87x7QYrbKJNbfDavQACawMAAlobywF60Koi6G4EECME'
+    )
+    '''
+    
     buttons = [
         InlineKeyboardButton(
         text = "Find groupmates",
@@ -172,6 +179,7 @@ def register(message):
         new_user = Users(chat_id=chat_id,name=name)
         db.session.add(new_user)
         db.session.commit()
+        
         bot.reply_to(message,"Thank you, " + name + ", you have successfully registered.")
         bot.send_sticker(
         chat_id=chat_id, 
@@ -196,135 +204,143 @@ def register(message):
 @bot.message_handler(commands=['view'])
 def view(message):
     chat_id = message.chat.id
-    id_exist = idExists(chat_id)
     
-    flag1 = False
-    flag2 = False
-    
-    if not id_exist:
-        start(message)
-    else:
-        output = ""
-        groups = Looking_For_Group.query.filter_by(chat_id = chat_id)
+    try:
+        id_exist = idExists(chat_id)
         
-        for group in groups:
-            flag1 = True
-            break
+        flag1 = False
+        flag2 = False
         
-        if flag1:
-            output += "*Looking for Groups* :\n\n"
-            for group in groups:
-                school = group.school
-                module_code = group.module_code
-                semester = group.semester
-                section = group.section
-                output += "School: *" + school + "* "
-                output += "Semester: *" + str(semester) + "* Module: *" + module_code +  "* Section:* " + section + "*\n"
-        
-        members = Looking_For_Members.query.filter_by(chat_id = chat_id)
-        
-        for memb in members:
-            flag2 = True
-            break
-        
-        if flag2:
-            output += "\n *Looking for Members* :\n\n"
-            for memb in members:
-                school = memb.school
-                module_code = memb.module_code
-                semester = memb.semester
-                section = memb.section
-                num_mem_need = memb.num_members_need
-                
-                output += "School: *" + school + "* "
-                output += "Semester: *" + str(semester) + "* Module: *" + module_code +  "* Section:* " + section + "* Slots: *"+ str(num_mem_need) + "* \n"
-
-        if not flag1 and not flag2:
-            bot.send_message(chat_id, "~ Nothing to view ~")
+        if not id_exist:
+            start(message)
         else:
-            bot.send_message(chat_id, output, parse_mode= 'Markdown')
+            output = ""
+            groups = Looking_For_Group.query.filter_by(chat_id = chat_id)
             
+            for group in groups:
+                flag1 = True
+                break
+            
+            if flag1:
+                output += "*Looking for Groups* :\n\n"
+                for group in groups:
+                    school = group.school
+                    module_code = group.module_code
+                    semester = group.semester
+                    section = group.section
+                    output += "School: *" + school + "* "
+                    output += "Semester: *" + str(semester) + "* Module: *" + module_code +  "* Section:* " + section + "*\n"
+            
+            members = Looking_For_Members.query.filter_by(chat_id = chat_id)
+            
+            for memb in members:
+                flag2 = True
+                break
+            
+            if flag2:
+                output += "\n *Looking for Members* :\n\n"
+                for memb in members:
+                    school = memb.school
+                    module_code = memb.module_code
+                    semester = memb.semester
+                    section = memb.section
+                    num_mem_need = memb.num_members_need
+                    
+                    output += "School: *" + school + "* "
+                    output += "Semester: *" + str(semester) + "* Module: *" + module_code +  "* Section:* " + section + "* Slots: *"+ str(num_mem_need) + "* \n"
+    
+            if not flag1 and not flag2:
+                bot.send_message(chat_id, "~ Nothing to view ~")
+            else:
+                bot.send_message(chat_id, output, parse_mode= 'Markdown')
+        
+    except:
+        bot.send_message(chat_id, "Sorry you have been inactive for a long time. Please /start again")
 
 # Edit requests made
 @bot.message_handler(commands=['edit'])
 def editRequests(message):
     chat_id = message.chat.id
-    id_exist = idExists(chat_id)
     
-    count = 1
-    buttons = []
-    
-    flag1 = False
-    flag2 = False
-    
-    if not id_exist:
-        start(message)
-    else:
-        output = ""
-        groups = Looking_For_Group.query.filter_by(chat_id = chat_id)
+    try:
+        id_exist = idExists(chat_id)
         
-        for group in groups:
-            flag1 = True
-            break
+        count = 1
+        buttons = []
         
-        if flag1:
-            output += "*Looking for Groups* :\n\n"
-            for group in groups:
-                school = group.school
-                module_code = group.module_code
-                semester = group.semester
-                section = group.section
-                output += str(count) + ". School: *" + school + "* "
-                output += " Semester: *" + str(semester) + "* Module: *" + module_code +  "* Section:* " + section + "*\n"
-                data_string = "-".join([school,module_code,str(semester),section])
-                button = InlineKeyboardButton(
-                    text = str(count),
-                    callback_data = "edit_group:" + data_string
-                )
-                buttons.append(button)
-                count += 1
+        flag1 = False
+        flag2 = False
         
-        members = Looking_For_Members.query.filter_by(chat_id = chat_id)
-        
-        for memb in members:
-            flag2 = True
-            break
-        
-        if flag2:
-            output += "\n *Looking for Members* :\n\n"
-            for memb in members:
-                school = memb.school
-                module_code = memb.module_code
-                semester = memb.semester
-                section = memb.section
-                num_mem_need = memb.num_members_need
-                
-                output += str(count) + ". School: *" + school + "* "
-                output += "Semester: *" + str(semester) + "* Module: *" + module_code +  "* Section:* " + section + "* Slots: *"+ str(num_mem_need) + "* \n"
-                count += 1
-                data_string = "-".join([school,module_code,str(semester),section,str(num_mem_need)])
-                button = InlineKeyboardButton(
-                    text = str(count),
-                    callback_data = "edit_mem:" + data_string
-                )
-                buttons.append(button)
-
-        if not flag1 and not flag2:
-            bot.send_message(chat_id, "You have no requests to edit.")
+        if not id_exist:
+            start(message)
         else:
-            bot.send_message(chat_id, output, parse_mode= 'Markdown')
-            keyboard = []
-            row_limit = 4
-            row = []
-            for button in buttons:
-                row.append(button)
-                if len(row) == row_limit:
+            output = ""
+            groups = Looking_For_Group.query.filter_by(chat_id = chat_id)
+            
+            for group in groups:
+                flag1 = True
+                break
+            
+            if flag1:
+                output += "*Looking for Groups* :\n\n"
+                for group in groups:
+                    school = group.school
+                    module_code = group.module_code
+                    semester = group.semester
+                    section = group.section
+                    output += str(count) + ". School: *" + school + "* "
+                    output += " Semester: *" + str(semester) + "* Module: *" + module_code +  "* Section:* " + section + "*\n"
+                    data_string = "-".join([school,module_code,str(semester),section])
+                    button = InlineKeyboardButton(
+                        text = str(count),
+                        callback_data = "edit_group:" + data_string
+                    )
+                    buttons.append(button)
+                    count += 1
+            
+            members = Looking_For_Members.query.filter_by(chat_id = chat_id)
+            
+            for memb in members:
+                flag2 = True
+                break
+            
+            if flag2:
+                output += "\n *Looking for Members* :\n\n"
+                for memb in members:
+                    school = memb.school
+                    module_code = memb.module_code
+                    semester = memb.semester
+                    section = memb.section
+                    num_mem_need = memb.num_members_need
+                    
+                    output += str(count) + ". School: *" + school + "* "
+                    output += "Semester: *" + str(semester) + "* Module: *" + module_code +  "* Section:* " + section + "* Slots: *"+ str(num_mem_need) + "* \n"
+                    count += 1
+                    data_string = "-".join([school,module_code,str(semester),section,str(num_mem_need)])
+                    button = InlineKeyboardButton(
+                        text = str(count),
+                        callback_data = "edit_mem:" + data_string
+                    )
+                    buttons.append(button)
+    
+            if not flag1 and not flag2:
+                bot.send_message(chat_id, "You have no requests to edit.")
+            else:
+                bot.send_message(chat_id, output, parse_mode= 'Markdown')
+                keyboard = []
+                row_limit = 4
+                row = []
+                for button in buttons:
+                    row.append(button)
+                    if len(row) == row_limit:
+                        keyboard.append(row)
+                        row = []
+                if len(row) > 0:
                     keyboard.append(row)
-                    row = []
-            if len(row) > 0:
-                keyboard.append(row)
-            message_text = f'To edit a search request, please click on the button with the corresponding number to the request you want to edit.'
-            bot.send_message(chat_id, message_text, reply_markup = InlineKeyboardMarkup(keyboard),parse_mode= 'Markdown')
+                message_text = f'To edit a search request, please click on the button with the corresponding number to the request you want to edit.'
+                bot.send_message(chat_id, message_text, reply_markup = InlineKeyboardMarkup(keyboard),parse_mode= 'Markdown')
+    except:
+        bot.send_message(chat_id, "Sorry you have been inactive for a long time. Please /start again")
 
 @bot.callback_query_handler(lambda query: query.data.split(":")[0] == 'edit_group')
 def editRequest(query):
@@ -525,17 +541,20 @@ def enter_section2(message):
 
 
 def enter_semester1(message):
-    chat_id = message.chat.id
-    semester = message.text.strip()
-    temp_find_group = temp_find_group_dict[chat_id]
-    temp_find_group.setSemester(semester)
-    # Add to DB
-    new_record = Looking_For_Group(chat_id=chat_id,school=temp_find_group.getSchool(),module_code=temp_find_group.getModuleCode(),semester=temp_find_group.getSemester(),section=temp_find_group.getSection())
-    db.session.add(new_record)
-    db.session.commit()
-    
-    msg = bot.send_message(chat_id, "Your group search request has been successfully created. We will search for available groups for you...")
-    bot.register_next_step_handler(msg, search1(chat_id))
+    try:
+        chat_id = message.chat.id
+        semester = message.text.strip()
+        temp_find_group = temp_find_group_dict[chat_id]
+        temp_find_group.setSemester(semester)
+        # Add to DB
+        new_record = Looking_For_Group(chat_id=chat_id,school=temp_find_group.getSchool(),module_code=temp_find_group.getModuleCode(),semester=temp_find_group.getSemester(),section=temp_find_group.getSection())
+        db.session.add(new_record)
+        db.session.commit()
+        
+        msg = bot.send_message(chat_id, "Your group search request has been successfully created. We will search for available groups for you...")
+        bot.register_next_step_handler(msg, search1(chat_id))
+    except:
+        bot.send_message(chat_id, "Sorry you have been inactive for a long time. Please /start again")
 
 def enter_semester2(message):
     chat_id = message.chat.id
@@ -546,18 +565,20 @@ def enter_semester2(message):
     bot.register_next_step_handler(msg, enter_avail)
 
 def enter_avail(message):
-    chat_id = message.chat.id
-    avail = message.text.strip()
-    # Add to DB
-    temp_find_member = temp_find_member_dict[chat_id]
-    temp_find_member.setNumMembersNeeded(avail)
-    new_record = Looking_For_Members(chat_id=chat_id,school=temp_find_member.getSchool(),module_code=temp_find_member.getModuleCode(),semester=temp_find_member.getSemester(),section=temp_find_member.getSection(), num_members_need=temp_find_member.getNumMembersNeeded())
-    db.session.add(new_record)
-    db.session.commit()
-    
-    msg = bot.send_message(chat_id, "Your group search request has been successfully created. We will search for available members for you...")
-    bot.register_next_step_handler(msg, search2(chat_id))
-    
+    try:
+        chat_id = message.chat.id
+        avail = message.text.strip()
+        # Add to DB
+        temp_find_member = temp_find_member_dict[chat_id]
+        temp_find_member.setNumMembersNeeded(avail)
+        new_record = Looking_For_Members(chat_id=chat_id,school=temp_find_member.getSchool(),module_code=temp_find_member.getModuleCode(),semester=temp_find_member.getSemester(),section=temp_find_member.getSection(), num_members_need=temp_find_member.getNumMembersNeeded())
+        db.session.add(new_record)
+        db.session.commit()
+        
+        msg = bot.send_message(chat_id, "Your group search request has been successfully created. We will search for available members for you...")
+        bot.register_next_step_handler(msg, search2(chat_id))
+    except:
+        db.session.rollback()
     
 
 @bot.callback_query_handler(lambda query: query.data.split(":")[0] == 'converse')
@@ -597,196 +618,217 @@ def start_convo(query):
 
 @bot.callback_query_handler(lambda query: query.data.split(":")[0] == 'end_convo')
 def endConvo(query):
-    response = query.data.split(":")[1]
-    other_chat_id = int(query.data.split(":")[2])
-    other_name = Users.query.filter_by(chat_id=other_chat_id).first().name
-    match_string = query.data.split(":")[3]
     chat_id = query.from_user.id
-    name = Users.query.filter_by(chat_id=chat_id).first().name
-    message_id = query.message.id
-    new_markup = InlineKeyboardMarkup([])
-    bot.edit_message_reply_markup(chat_id,message_id,reply_markup=new_markup)
+    try:
+        response = query.data.split(":")[1]
+        other_chat_id = int(query.data.split(":")[2])
+        other_name = Users.query.filter_by(chat_id=other_chat_id).first().name
+        match_string = query.data.split(":")[3]
+        chat_id = query.from_user.id
+        name = Users.query.filter_by(chat_id=chat_id).first().name
+        message_id = query.message.id
+        new_markup = InlineKeyboardMarkup([])
+        bot.edit_message_reply_markup(chat_id,message_id,reply_markup=new_markup)
     
-    if response == "accept":
-        # Process acceptance
-        match_list = match_string.split("-")
-        accept_dict[(int(match_list[0]),int(match_list[1]))] += 1
-        bot.send_message(chat_id,"You have accepted the partnership with " + other_name + ". Waiting for them to accept back...")
-        url = 'https://api.telegram.org/bot' + API_KEY + '/sendMessage'
-        data = {'chat_id': other_chat_id, 'text': name + ' has accepted you.'}
-        requests.post(url,data).json()
-        
-        if accept_dict[(int(match_list[0]),int(match_list[1]))] == 2:
+    
+        if response == "accept":
+            # Process acceptance
+            match_list = match_string.split("-")
+            accept_dict[(int(match_list[0]),int(match_list[1]))] += 1
+            bot.send_message(chat_id,"You have accepted the partnership with " + other_name + ". Waiting for them to accept back...")
+            url = 'https://api.telegram.org/bot' + API_KEY + '/sendMessage'
+            data = {'chat_id': other_chat_id, 'text': name + ' has accepted you.'}
+            requests.post(url,data).json()
+            
+            if accept_dict[(int(match_list[0]),int(match_list[1]))] == 2:
+                match_found = Match_Found.query.filter_by(finder_chat_id=int(match_list[0]),looker_chat_id=int(match_list[1]),school=match_list[2],module_code=match_list[3],semester=int(match_list[4]),section=match_list[5]).first()
+                match_found.accepted = 'A'
+                db.session.commit()
+                looking_for_member = Looking_For_Members.query.filter_by(chat_id=int(match_list[0]),school=match_list[2],module_code=match_list[3],semester=int(match_list[4])).first()
+                looking_for_member.num_members_need -= 1
+                db.session.commit()
+                url = 'https://api.telegram.org/bot' + API_KEY + '/sendMessage'
+                data = {'chat_id': other_chat_id, 'text': 'Hooray, ' + name + ' has agreed to group together with you for the project. Ending the private conversation.'}
+                requests.post(url,data).json()
+                bot.send_message(chat_id,"Congratulations! You and " + other_name + " have agreed to group together. Ending private conversation.")
+                if looking_for_member.num_members_need == 0:
+                    bot.send_message(looking_for_member.chat_id,"Your group is now full! We will be removing your request from our system. Thank you for using GroupTogether!")
+                    db.session.delete(looking_for_member)
+                    db.session.commit()
+                del accept_dict[(int(match_list[0]),int(match_list[1]))]
+                del conversation_dict[chat_id]
+                del conversation_dict[other_chat_id]
+        else:
+            match_list = match_string.split("-")
             match_found = Match_Found.query.filter_by(finder_chat_id=int(match_list[0]),looker_chat_id=int(match_list[1]),school=match_list[2],module_code=match_list[3],semester=int(match_list[4]),section=match_list[5]).first()
-            match_found.accepted = 'A'
-            db.session.commit()
-            looking_for_member = Looking_For_Members.query.filter_by(chat_id=int(match_list[0]),school=match_list[2],module_code=match_list[3],semester=int(match_list[4])).first()
-            looking_for_member.num_members_need -= 1
+            match_found.accepted = 'R'
             db.session.commit()
             url = 'https://api.telegram.org/bot' + API_KEY + '/sendMessage'
-            data = {'chat_id': other_chat_id, 'text': 'Hooray, ' + name + ' has agreed to group together with you for the project. Ending the private conversation.'}
+            data = {'chat_id': other_chat_id, 'text': 'Aww, it looks like ' + name + ' has decided to reject your partnership. Better luck with another person! Ending the private conversation.'}
             requests.post(url,data).json()
-            bot.send_message(chat_id,"Congratulations! You and " + other_name + " have agreed to group together. Ending private conversation.")
-            if looking_for_member.num_members_need == 0:
-                bot.send_message(looking_for_member.chat_id,"Your group is now full! We will be removing your request from our system. Thank you for using GroupTogether!")
-                db.session.delete(looking_for_member)
-                db.session.commit()
+            bot.send_message(chat_id,"Awww... It looks like you and  " + other_name + " were just not mean't to be together...in the same group. Ending private conversation.")
             del accept_dict[(int(match_list[0]),int(match_list[1]))]
             del conversation_dict[chat_id]
             del conversation_dict[other_chat_id]
-    else:
-        match_list = match_string.split("-")
-        match_found = Match_Found.query.filter_by(finder_chat_id=int(match_list[0]),looker_chat_id=int(match_list[1]),school=match_list[2],module_code=match_list[3],semester=int(match_list[4]),section=match_list[5]).first()
-        match_found.accepted = 'R'
-        db.session.commit()
-        url = 'https://api.telegram.org/bot' + API_KEY + '/sendMessage'
-        data = {'chat_id': other_chat_id, 'text': 'Aww, it looks like ' + name + ' has decided to reject your partnership. Better luck with another person! Ending the private conversation.'}
-        requests.post(url,data).json()
-        bot.send_message(chat_id,"Awww... It looks like you and  " + other_name + " were just not mean't to be together...in the same group. Ending private conversation.")
-        del accept_dict[(int(match_list[0]),int(match_list[1]))]
-        del conversation_dict[chat_id]
-        del conversation_dict[other_chat_id]
+    except:
+        bot.send_message(chat_id, "Sorry you have been inactive for a long time. Please /start again")
 
 def converse(message):
+    
     chat_id = message.chat.id
-    chat_message = message.text
-    if chat_id not in conversation_dict:
-        bot.send_message(chat_id,"You are not in a conversation!")
-    else:
-        other_chat_id = conversation_dict[chat_id]
-        name = Users.query.filter_by(chat_id=chat_id)
-        url = 'https://api.telegram.org/bot' + API_KEY + '/sendMessage'
-        data = {'chat_id': other_chat_id, 'text': "From " + name + ": " + chat_message}
-        requests.post(url,data).json()
-        msg = bot.reply_to(message,"Message sent!")
-        print(conversation_dict)
-        bot.register_next_step_handler(msg, converse)
+    try:
+        chat_message = message.text
+        if chat_id not in conversation_dict:
+            bot.send_message(chat_id,"You are not in a conversation!")
+        else:
+            other_chat_id = conversation_dict[chat_id]
+            name = Users.query.filter_by(chat_id=chat_id)
+            url = 'https://api.telegram.org/bot' + API_KEY + '/sendMessage'
+            data = {'chat_id': other_chat_id, 'text': "From " + name + ": " + chat_message}
+            requests.post(url,data).json()
+            msg = bot.reply_to(message,"Message sent!")
+            print(conversation_dict)
+            bot.register_next_step_handler(msg, converse)
+    except:
+        bot.send_message(chat_id, "Sorry you have been inactive for a long time. Please /start again")
         
 @bot.message_handler(commands=['converse'])
 def startConvo(message):
+    
     chat_id = message.chat.id
-    if chat_id not in conversation_dict:
-        bot.send_message(chat_id,"You are not in a conversation!")
-    else:
-        match_string = match_string_dict[chat_id]
-        other_chat_id = conversation_dict[chat_id]
-        keyboard = [[InlineKeyboardButton("Accept",callback_data='end_convo:accept:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("Reject",callback_data='end_convo:reject:' + str(other_chat_id) + ":" + match_string)]]
-        markup = InlineKeyboardMarkup(keyboard)
-        name = Users.query.filter_by(chat_id=chat_id).first().name
-        other_name = Users.query.filter_by(chat_id=other_chat_id).first().name
-        msg = bot.send_message(chat_id,'You are now in a conversation with '+ other_name +', Any text you type from here on will be sent to the other person.\n\nIf you have made a decision on whether to team up with the person, click on Accept or Reject to end the conversation.',reply_markup=markup)
-        url = 'https://api.telegram.org/bot' + API_KEY + '/sendMessage'
-        data = {'chat_id': other_chat_id, 'text': name + ' is now online. You can start talking to them.'}
-        requests.post(url,data).json()
-        bot.register_next_step_handler(msg,converse)
+    try:
+        if chat_id not in conversation_dict:
+            bot.send_message(chat_id,"You are not in a conversation!")
+        else:
+            match_string = match_string_dict[chat_id]
+            other_chat_id = conversation_dict[chat_id]
+            keyboard = [[InlineKeyboardButton("Accept",callback_data='end_convo:accept:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("Reject",callback_data='end_convo:reject:' + str(other_chat_id) + ":" + match_string)]]
+            markup = InlineKeyboardMarkup(keyboard)
+            name = Users.query.filter_by(chat_id=chat_id).first().name
+            other_name = Users.query.filter_by(chat_id=other_chat_id).first().name
+            msg = bot.send_message(chat_id,'You are now in a conversation with '+ other_name +', Any text you type from here on will be sent to the other person.\n\nIf you have made a decision on whether to team up with the person, click on Accept or Reject to end the conversation.',reply_markup=markup)
+            url = 'https://api.telegram.org/bot' + API_KEY + '/sendMessage'
+            data = {'chat_id': other_chat_id, 'text': name + ' is now online. You can start talking to them.'}
+            requests.post(url,data).json()
+            bot.register_next_step_handler(msg,converse)
+    except:
+        bot.send_message(chat_id, "Sorry you have been inactive for a long time. Please /start again")
 
 # Search Code
 def search1(chat_id):
+    try:
+        temp_find_group = temp_find_group_dict[chat_id]
+        avl_groups = Looking_For_Members.query.filter_by(school=temp_find_group.getSchool(),module_code=temp_find_group.getModuleCode(),semester=temp_find_group.getSemester(), section=temp_find_group.getSection())
+        found = False
+        for avl_group in avl_groups:
+            found = True
+        if not found:
+            bot.send_message(chat_id,"Unfortunately, there are currently no matching groups with availability. Please use the /search command again after waiting for some time.")
+        else:
+            for group in avl_groups:
+                other_chat_id = group.chat_id
+                name = Users.query.filter_by(chat_id=other_chat_id).first().name
+                new_match_found = Match_Found(finder_chat_id=other_chat_id,looker_chat_id=chat_id,school=temp_find_group.getSchool(),module_code=temp_find_group.getModuleCode(),semester=temp_find_group.getSemester(), section=temp_find_group.getSection(),accepted='P')
+                db.session.add(new_match_found)
+                db.session.commit()
+                match_string = '-'.join([str(new_match_found.finder_chat_id),str(new_match_found.looker_chat_id),new_match_found.school,new_match_found.module_code,str(new_match_found.semester),new_match_found.section])
+                keyboard = [[InlineKeyboardButton("Yes",callback_data='converse:yes:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("No",callback_data='converse:no:' + str(other_chat_id))]]
+                markup = InlineKeyboardMarkup(keyboard)
+                bot.send_message(chat_id,"We have found an available group for your following group search:\n\nSchool: "+ temp_find_group.getSchool() + "\nModule: " + temp_find_group.getModuleCode() + "\nSemester: " + temp_find_group.getSemester() + "\nSection: " + temp_find_group.getSection() + "\n\nHere are the group details:\n\nContact Person: " + name + "\nAvailable slots: " + str(group.num_members_need) + "\n\nWould you like to start a conversation?" ,reply_markup=markup)
     
-    temp_find_group = temp_find_group_dict[chat_id]
-    avl_groups = Looking_For_Members.query.filter_by(school=temp_find_group.getSchool(),module_code=temp_find_group.getModuleCode(),semester=temp_find_group.getSemester(), section=temp_find_group.getSection())
-    found = False
-    for avl_group in avl_groups:
-        found = True
-    if not found:
-        bot.send_message(chat_id,"Unfortunately, there are currently no matching groups with availability. Please use the /search command again after waiting for some time.")
-    else:
-        for group in avl_groups:
-            other_chat_id = group.chat_id
-            name = Users.query.filter_by(chat_id=other_chat_id).first().name
-            new_match_found = Match_Found(finder_chat_id=other_chat_id,looker_chat_id=chat_id,school=temp_find_group.getSchool(),module_code=temp_find_group.getModuleCode(),semester=temp_find_group.getSemester(), section=temp_find_group.getSection(),accepted='P')
-            db.session.add(new_match_found)
-            db.session.commit()
-            match_string = '-'.join([str(new_match_found.finder_chat_id),str(new_match_found.looker_chat_id),new_match_found.school,new_match_found.module_code,str(new_match_found.semester),new_match_found.section])
-            keyboard = [[InlineKeyboardButton("Yes",callback_data='converse:yes:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("No",callback_data='converse:no:' + str(other_chat_id))]]
-            markup = InlineKeyboardMarkup(keyboard)
-            bot.send_message(chat_id,"We have found an available group for your following group search:\n\nSchool: "+ temp_find_group.getSchool() + "\nModule: " + temp_find_group.getModuleCode() + "\nSemester: " + temp_find_group.getSemester() + "\nSection: " + temp_find_group.getSection() + "\n\nHere are the group details:\n\nContact Person: " + name + "\nAvailable slots: " + str(group.num_members_need) + "\n\nWould you like to start a conversation?" ,reply_markup=markup)
-
-    del temp_find_group_dict[chat_id]
-            
+        del temp_find_group_dict[chat_id]
+    
+    except:
+        bot.send_message(chat_id, "Sorry you have been inactive for a long time. Please /start again")
 
 
 def search2(chat_id):
-    temp_find_member = temp_find_member_dict[chat_id]
-    avl_members = Looking_For_Group.query.filter_by(school=temp_find_member.getSchool(),module_code=temp_find_member.getModuleCode(),semester=temp_find_member.getSemester(), section=temp_find_member.getSection())
-    found = False
-    for avl_mem in avl_members:
-        found = True
-    if not found:
-        bot.send_message(chat_id,"Unfortunately, there are currently no matching users looking for a group. Please use the /search command again after waiting for some time.")
-    else:
-        for member in avl_members:
-            other_chat_id = member.chat_id
-            name = Users.query.filter_by(chat_id=other_chat_id).first().name
-            new_match_found = Match_Found(finder_chat_id=chat_id,looker_chat_id=other_chat_id,school=temp_find_member.getSchool(),module_code=temp_find_member.getModuleCode(),semester=temp_find_member.getSemester(), section=temp_find_member.getSection(),accepted='P')
-            db.session.add(new_match_found)
-            db.session.commit()
-            match_string = '-'.join([str(new_match_found.finder_chat_id),str(new_match_found.looker_chat_id),new_match_found.school,new_match_found.module_code,str(new_match_found.semester),new_match_found.section])
-            keyboard = [[InlineKeyboardButton("Yes",callback_data='converse:yes:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("No",callback_data='converse:no:' + str(other_chat_id))]]
-            markup = InlineKeyboardMarkup(keyboard)
-            bot.send_message(chat_id,"We have found an available member for your following member search:\n\nSchool: "+ temp_find_member.getSchool() + "\nModule: " + temp_find_member.getModuleCode() + "\nSemester: " + temp_find_member.getSemester() + "\nSection: " + temp_find_member.getSection() + "\n\nHere are their details:\n\nContact Person: " + name + "\n\nWould you like to start a conversation?" ,reply_markup=markup)
-        
-    del temp_find_member_dict[chat_id]
+    try:
+        temp_find_member = temp_find_member_dict[chat_id]
+        avl_members = Looking_For_Group.query.filter_by(school=temp_find_member.getSchool(),module_code=temp_find_member.getModuleCode(),semester=temp_find_member.getSemester(), section=temp_find_member.getSection())
+        found = False
+        for avl_mem in avl_members:
+            found = True
+        if not found:
+            bot.send_message(chat_id,"Unfortunately, there are currently no matching users looking for a group. Please use the /search command again after waiting for some time.")
+        else:
+            for member in avl_members:
+                other_chat_id = member.chat_id
+                name = Users.query.filter_by(chat_id=other_chat_id).first().name
+                new_match_found = Match_Found(finder_chat_id=chat_id,looker_chat_id=other_chat_id,school=temp_find_member.getSchool(),module_code=temp_find_member.getModuleCode(),semester=temp_find_member.getSemester(), section=temp_find_member.getSection(),accepted='P')
+                db.session.add(new_match_found)
+                db.session.commit()
+                match_string = '-'.join([str(new_match_found.finder_chat_id),str(new_match_found.looker_chat_id),new_match_found.school,new_match_found.module_code,str(new_match_found.semester),new_match_found.section])
+                keyboard = [[InlineKeyboardButton("Yes",callback_data='converse:yes:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("No",callback_data='converse:no:' + str(other_chat_id))]]
+                markup = InlineKeyboardMarkup(keyboard)
+                bot.send_message(chat_id,"We have found an available member for your following member search:\n\nSchool: "+ temp_find_member.getSchool() + "\nModule: " + temp_find_member.getModuleCode() + "\nSemester: " + temp_find_member.getSemester() + "\nSection: " + temp_find_member.getSection() + "\n\nHere are their details:\n\nContact Person: " + name + "\n\nWould you like to start a conversation?" ,reply_markup=markup)
+            
+        del temp_find_member_dict[chat_id]
+    except:
+        bot.send_message(chat_id, "Sorry you have been inactive for a long time. Please /start again")
     
 @bot.message_handler(commands=['search'])
 def performSearch(message):
     # Perform group search
     chat_id = message.chat.id
-    looking_for_group_list = Looking_For_Group.query.filter_by(chat_id=chat_id)
-    group_found = False
-    for l in looking_for_group_list:
-        group_found = True
-        break
-    if group_found:
-        bot.send_message(chat_id,"Searching for groups based on your requests...")
-        count = 0
-        for group_look in looking_for_group_list:
-            avl_groups = Looking_For_Members.query.filter_by(school=group_look.school,module_code=group_look.module_code,semester=group_look.semester, section=group_look.section)
-            for group in avl_groups:
-                other_chat_id = group.chat_id
-                name = Users.query.filter_by(chat_id=other_chat_id).first().name
-                # check if match_Found exists
-                new_match_found = Match_Found.query.filter_by(finder_chat_id=other_chat_id,looker_chat_id=chat_id,school=group_look.school,module_code=group_look.module_code,semester=group_look.semester, section=group_look.section).first()
-                if not new_match_found:
-                    new_match_found = Match_Found(finder_chat_id=other_chat_id,looker_chat_id=chat_id,school=group_look.school,module_code=group_look.module_code,semester=group_look.semester, section=group_look.section,accepted='P')
-                    db.session.add(new_match_found)
-                    db.session.commit()
-                match_string = '-'.join([str(new_match_found.finder_chat_id),str(new_match_found.looker_chat_id),new_match_found.school,new_match_found.module_code,str(new_match_found.semester),new_match_found.section])
-                keyboard = [[InlineKeyboardButton("Yes",callback_data='converse:yes:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("No",callback_data='converse:no:' + str(other_chat_id))]]
-                markup = InlineKeyboardMarkup(keyboard)
-                bot.send_message(chat_id,"We have found an available group for your following group search:\n\nSchool: "+ group_look.school + "\nModule: " + group_look.module_code + "\nSemester: " + str(group_look.semester) + "\nSection: " + group_look.section + "\n\nHere are the group details:\n\nContact Person: " + name + "\nAvailable slots: " + str(group.num_members_need) + "\n\nWould you like to start a conversation?" ,reply_markup=markup)
-                count += 1
+    try:
+        looking_for_group_list = Looking_For_Group.query.filter_by(chat_id=chat_id)
+        group_found = False
+        for l in looking_for_group_list:
+            group_found = True
+            break
+        if group_found:
+            bot.send_message(chat_id,"Searching for groups based on your requests...")
+            count = 0
+            for group_look in looking_for_group_list:
+                avl_groups = Looking_For_Members.query.filter_by(school=group_look.school,module_code=group_look.module_code,semester=group_look.semester, section=group_look.section)
+                for group in avl_groups:
+                    other_chat_id = group.chat_id
+                    name = Users.query.filter_by(chat_id=other_chat_id).first().name
+                    # check if match_Found exists
+                    new_match_found = Match_Found.query.filter_by(finder_chat_id=other_chat_id,looker_chat_id=chat_id,school=group_look.school,module_code=group_look.module_code,semester=group_look.semester, section=group_look.section).first()
+                    if not new_match_found:
+                        new_match_found = Match_Found(finder_chat_id=other_chat_id,looker_chat_id=chat_id,school=group_look.school,module_code=group_look.module_code,semester=group_look.semester, section=group_look.section,accepted='P')
+                        db.session.add(new_match_found)
+                        db.session.commit()
+                    match_string = '-'.join([str(new_match_found.finder_chat_id),str(new_match_found.looker_chat_id),new_match_found.school,new_match_found.module_code,str(new_match_found.semester),new_match_found.section])
+                    keyboard = [[InlineKeyboardButton("Yes",callback_data='converse:yes:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("No",callback_data='converse:no:' + str(other_chat_id))]]
+                    markup = InlineKeyboardMarkup(keyboard)
+                    bot.send_message(chat_id,"We have found an available group for your following group search:\n\nSchool: "+ group_look.school + "\nModule: " + group_look.module_code + "\nSemester: " + str(group_look.semester) + "\nSection: " + group_look.section + "\n\nHere are the group details:\n\nContact Person: " + name + "\nAvailable slots: " + str(group.num_members_need) + "\n\nWould you like to start a conversation?" ,reply_markup=markup)
+                    count += 1
+                    
+            if count == 0:
+                bot.send_message(chat_id,"Sorry, it looks like that there are no available groups that match your requests.")
+        
+        # Perform Member search
+        looking_for_member_list = Looking_For_Members.query.filter_by(chat_id=chat_id)
+        member_found = False
+        for l in looking_for_member_list:
+            member_found = True
+            break
+        if member_found:
+            bot.send_message(chat_id,"Searching for members based on your requests...")
+            count = 0
+            for member_look in looking_for_member_list:
+                avl_groups = Looking_For_Group.query.filter_by(school=member_look.school,module_code=member_look.module_code,semester=member_look.semester, section=member_look.section)
+                for group in avl_groups:
+                    other_chat_id = group.chat_id
+                    name = Users.query.filter_by(chat_id=other_chat_id).first().name
+                    new_match_found = Match_Found.query.filter_by(finder_chat_id=chat_id,looker_chat_id=other_chat_id,school=member_look.school,module_code=member_look.module_code,semester=member_look.semester, section=member_look.section).first()
+                    if not new_match_found:
+                        new_match_found = Match_Found(finder_chat_id=chat_id,looker_chat_id=other_chat_id,school=member_look.school,module_code=member_look.module_code,semester=member_look.semester, section=member_look.section,accepted='P')
+                        db.session.add(new_match_found)
+                        db.session.commit()
+                    match_string = '-'.join([str(new_match_found.finder_chat_id),str(new_match_found.looker_chat_id),new_match_found.school,new_match_found.module_code,str(new_match_found.semester),new_match_found.section])
+                    keyboard = [[InlineKeyboardButton("Yes",callback_data='converse:yes:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("No",callback_data='converse:no:' + str(other_chat_id))]]
+                    markup = InlineKeyboardMarkup(keyboard)
+                    bot.send_message(chat_id,"We have found an available member for your following member search:\n\nSchool: "+ member_look.school + "\nModule: " + member_look.module_code + "\nSemester: " + str(member_look.semester) + "\nSection: " + member_look.section + "\n\nHere are their details:\n\nContact Person: " + name + "\n\nWould you like to start a conversation?" ,reply_markup=markup)
+                    count += 1
+                    
+            if count == 0:
+                bot.send_message(chat_id,"Sorry, it looks like that there are no available members that match your requests.")
                 
-        if count == 0:
-            bot.send_message(chat_id,"Sorry, it looks like that there are no available groups that match your requests.")
-    
-    # Perform Member search
-    looking_for_member_list = Looking_For_Members.query.filter_by(chat_id=chat_id)
-    member_found = False
-    for l in looking_for_member_list:
-        member_found = True
-        break
-    if member_found:
-        bot.send_message(chat_id,"Searching for members based on your requests...")
-        count = 0
-        for member_look in looking_for_member_list:
-            avl_groups = Looking_For_Group.query.filter_by(school=member_look.school,module_code=member_look.module_code,semester=member_look.semester, section=member_look.section)
-            for group in avl_groups:
-                other_chat_id = group.chat_id
-                name = Users.query.filter_by(chat_id=other_chat_id).first().name
-                new_match_found = Match_Found.query.filter_by(finder_chat_id=chat_id,looker_chat_id=other_chat_id,school=member_look.school,module_code=member_look.module_code,semester=member_look.semester, section=member_look.section).first()
-                if not new_match_found:
-                    new_match_found = Match_Found(finder_chat_id=chat_id,looker_chat_id=other_chat_id,school=member_look.school,module_code=member_look.module_code,semester=member_look.semester, section=member_look.section,accepted='P')
-                    db.session.add(new_match_found)
-                    db.session.commit()
-                match_string = '-'.join([str(new_match_found.finder_chat_id),str(new_match_found.looker_chat_id),new_match_found.school,new_match_found.module_code,str(new_match_found.semester),new_match_found.section])
-                keyboard = [[InlineKeyboardButton("Yes",callback_data='converse:yes:' + str(other_chat_id) + ":" + match_string),InlineKeyboardButton("No",callback_data='converse:no:' + str(other_chat_id))]]
-                markup = InlineKeyboardMarkup(keyboard)
-                bot.send_message(chat_id,"We have found an available member for your following member search:\n\nSchool: "+ member_look.school + "\nModule: " + member_look.module_code + "\nSemester: " + str(member_look.semester) + "\nSection: " + member_look.section + "\n\nHere are their details:\n\nContact Person: " + name + "\n\nWould you like to start a conversation?" ,reply_markup=markup)
-                count += 1
-                
-        if count == 0:
-            bot.send_message(chat_id,"Sorry, it looks like that there are no available members that match your requests.")
-    
+    except:
+        bot.send_message(chat_id, "Sorry you have been inactive for a long time. Please /start again")
 
 bot.infinity_polling()

@@ -1,7 +1,8 @@
-pytelegrambotapi
+pyTelegramBotAPI
 gtts
 praw
 flask
 SQLAlchemy
 flask_sqlalchemy
 requests
+mysql-connector
